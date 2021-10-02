@@ -1,0 +1,73 @@
+version: '3.8'
+services:
+
+  mongodb:
+    image: "mongo"
+    container_name: mongodb
+    environment:
+      PUID: 1000
+      PGID: 1000
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: example
+    volumes:
+      - ./storage/mongodb/data:/data/db
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+    
+  mongoweb:
+    image: "mongo-express"
+    container_name: mongoweb
+    links:
+      - mongodb
+    environment:
+      PUID: 1000
+      PGID: 1000
+      ME_CONFIG_OPTIONS_EDITORTHEME: ambiance
+      ME_CONFIG_MONGODB_ENABLE_ADMIN: true
+      ME_CONFIG_MONGODB_SERVER: mongodb
+      ME_CONFIG_MONGODB_PORT: 27017
+      ME_CONFIG_MONGODB_ADMINUSERNAME: root
+      ME_CONFIG_MONGODB_ADMINPASSWORD: example
+      ME_CONFIG_MONGODB_URL: mongodb://root:example@mongodb:27017/
+    volumes:
+      - ./storage/mongodb/data:/data/db
+    ports:
+      - "8081:8081"
+    restart: unless-stopped
+
+  app:
+    image: python
+    container_name: app
+    links:
+      - mongodb
+    working_dir: /app
+    #command: python app.py
+    command: bash start.sh
+    environment:
+      PUID: 1000
+      PGID: 1000
+      APPCONFIG_MONGODB_ADMINUSERNAME: root
+      APPCONFIG_MONGODB_ADMINPASSWORD: example
+      APPCONFIG_MONGODB_HOSTNAME: mongodb
+      APPCONFIG_MONGODB_PORT: 27017
+    volumes:
+      - ./storage/app/data:/app
+    ports:
+      - "5000:5000"
+    restart: unless-stopped
+
+  secure:
+    image: caddy
+    container_name: secure
+    links:
+      - app
+    environment:
+      PUID: 1000
+      PGID: 1000
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./storage/caddy/data/etc/Caddyfile:/etc/caddy/Caddyfile
+    restart: unless-stopped
